@@ -1,4 +1,4 @@
-## High-Volume Query Performance Optimization and Surity Architecture
+## High-Volume Query Performance Optimization and Database Security Architecture
 
 <br>
 
@@ -8,10 +8,10 @@ This production case study simulates a real-world PostgreSQL system operating at
 
 - Diagnose query performance bottlenecks
 - Apply targeted, evidence-based SQL optimizations
-- Design and enforce enterprise-grade database security
-- Validate improvements using execution plans and role-based testing <br>
+- Design and enforce production-grade database security
+- Validate improvements through execution plans and role-based testing <br>
 
-Rather than designing a schema from scratch, this project intentionally begins with performance and security debt, reflecting how databases evolve in real organizations.
+Instead of designing a schema from scratch, this project starts from an inherited system with performance and security debt, reflecting how databases typically evolve in real organizations.
 
 
 <br>
@@ -54,9 +54,10 @@ The project begins at the point where real-world database engineering work typic
 <br>
 
 ### Phase 1. Inherited Schema & Baseline State
+<img height="300" alt="schemas" src="https://github.com/user-attachments/assets/2f0e5508-92aa-43cc-97fe-8bee3088d77a" />
 
 #### Context
-The database schema(staging, core) contains normalized production tables supporting financial operations:
+The database schema contains normalized production tables supporting financial operations:
 - core.users: customer records (PII)
 - core.cards: payment card data (PCI-sensitive)
 - core.transactions — high-volume fact table (13M+ rows)
@@ -80,7 +81,8 @@ This baseline establishes measurable performance pain and security exposure nece
 ### Phase 2. Baseline Performance Benchmarking
 #### Objective
 Establish clear, measurable evidence of performance limitations before any optimization, indexing, or tuning is applied. <br>
-This phase defines the performance baseline and justifies subsequent optimization decisions. The goal was to:
+This phase defines the performance baseline and justifies subsequent optimization decisions. <br>
+The goal was to:
 - Identify workload bottlenecks
 - Capture baseline execution plans
 - Measure real query response times
@@ -99,7 +101,9 @@ FROM pg_catalog.pg_statio_user_tables
 ORDER BY pg_total_relation_size(relid) DESC;
 ```
 
-Result:
+<br>
+
+Output:
 ```
 "table_name"	    "total_size"
 "transactions"	    "1654 MB"
@@ -117,7 +121,7 @@ The transactions table is significantly larger than all other tables, exceeding 
 
 #### 2. Identification of Realistic Query Patterns
 Before executing benchmarks, common query patterns were identified based on realistic organizational usage rather than synthetic tests. <br>
-These patterns represent how analysts, finance teams, operations, and support teams would interact with the data in a production environment. <br>
+These patterns reflect how analysts, finance teams, and operations typically interact with production data. <br>
 
 **Identified Query Categories:**
 | Query Category       | Typical Use Case                |
@@ -131,6 +135,7 @@ These patterns represent how analysts, finance teams, operations, and support te
 
 #### 3. Measure Execution Plans
 Representative queries were executed without indexes to capture baseline execution behavior and response times. 
+
 <br>
 
 **Query 1: Date-Range Transaction Filtering** <br>
@@ -144,7 +149,7 @@ WHERE transaction_date >= '2019-01-01'
 AND transaction_date < '2019-02-01';
 ```
 
-**Observed Execution Behavior & Performance:**
+**Behavior Observed:**
 - Parallel Sequential Scan on transactions
 - ~4.4M rows scanned, ~118K rows returned
 - No supporting index on transaction_date
@@ -164,7 +169,7 @@ FROM core.transactions
 WHERE user_id = 12345;
 ```
 
-**Observed Execution Behavior & Performance:** <br>
+**Behavior Observed:** <br>
 - Parallel Sequential Scan on transactions
 - ~4.4M rows scanned, 0 rows returned
 - No supporting index on user_id
@@ -187,7 +192,7 @@ WHERE user_id = 12345
 ```
 
 
-**Observed Execution Behavior & Performance** <br>
+**Behavior Observed:** <br>
 - Parallel Sequential Scan on transactions
 - ~4.4M rows scanned, 0 rows returned
 - No supporting index on user_id or transaction_date
@@ -211,7 +216,7 @@ GROUP BY DATE(transaction_date);
 ```
 
 
-**Observed Execution Behavior & Performance:** <br>
+**Behavior Observed:** <br>
 - Parallel Sequential Scan across entire table
 - Partial Hash Aggregate followed by Final Group Aggregate
 - In-memory sorting performed
@@ -232,7 +237,7 @@ FROM core.transactions
 WHERE errors IS NOT NULL;
 ```
 
-**Observed Execution Behavior & Performance:** <br>
+**Behavior Observed:** <br>
 - Parallel Sequential Scan on transactions
 - ~4.4M rows scanned, ~211K rows returned
 - No supporting index on nullable errors column
@@ -247,6 +252,7 @@ WHERE errors IS NOT NULL;
 Baseline execution plans showed that all high-cost queries against core.transactions relied on parallel sequential scans, resulting in multi-second execution times caused by full-table reads on a high-volume dataset. <br>
 
 Based on the observed query patterns, optimization efforts focused on high-impact, evidence-driven changes rather than speculative tuning.
+
 <br>
 
 #### Optimization Approach
@@ -309,26 +315,34 @@ All baseline queries were re-executed unchanged to ensure a direct, apples-to-ap
 
 Observed Execution Behavior & Performance: <br>
 
-**Query 1: Date-Range Transaction Filtering**
+**Query 1: Date-Range Transaction Filtering** <br>
+<img height="300" alt="Query 1  Date-range transaction filtering" src="https://github.com/user-attachments/assets/923ce31a-42c0-4896-939c-6f495d284cb4" />
+
 - Index Scan on idx_transactions_transaction_date
 - Execution time reduced from ~11.4s to ~40ms (>99% improvement)
 
 <br>
 
-**Query 2: User Transaction History**
+**Query 2: User Transaction History** <br>
+<img height="300" alt="Query 2  User transaction history" src="https://github.com/user-attachments/assets/ad659096-4f24-4277-b60d-828e3b3796c3" />
+
 - Bitmap Index Scan on idx_transactions_user_id
 - Execution time reduced from ~3s to ~5ms
 
 <br>
 
-**Query 3: User Transaction History with Date Range**
+**Query 3: User Transaction History with Date Range** <br>
+<img height="300" alt="Query 3  User Transaction History with Date Range" src="https://github.com/user-attachments/assets/09ee1d5a-53a5-4a7d-91f6-867a9db3d93c" />
+
 - Bitmap Index Scan using composite index
 - Highly selective access path
 - Sub-millisecond execution (~0.08ms)
 
 <br>
 
-**Query 4: Aggregation (Finance / Analytics)**
+**Query 4: Aggregation (Finance / Analytics)** <br>
+<img height="300" alt="Query 4  Aggregation_ Finance _Analytics" src="https://github.com/user-attachments/assets/0d714963-304d-4325-968c-1aab03a899a6" />
+
 - Parallel sequential scan retained
 - Execution time ~11.7s
 - Full-table aggregation required; index usage not beneficial for this workload
@@ -337,7 +351,9 @@ Observed Execution Behavior & Performance: <br>
 
 <br>
 
-**Query 5: Error Monitoring**
+**Query 5: Error Monitoring** <br>
+<img height="300" alt="Query 5  Error Monitoring" src="https://github.com/user-attachments/assets/773305c0-05d3-4575-884c-bb8381ab3df0" />
+
 - Bitmap Index Scan on partial index
 - Execution time ~5.0s
 - Scan limited to ~211K error records instead of the full table
@@ -438,7 +454,7 @@ Partition boundaries follow PostgreSQL’s inclusive/exclusive range enforcement
 <br>
 
 - Partition Structure Validation
-<img height="250" alt="Partition Validation" src="https://github.com/user-attachments/assets/92c20ab5-07eb-47dc-b93b-b9d005407d27" />
+<img height="300" alt="Partition Validation" src="https://github.com/user-attachments/assets/92c20ab5-07eb-47dc-b93b-b9d005407d27" />
 
 ```sql
 SELECT
@@ -462,7 +478,7 @@ High-value indexes applied per partition:
 
 ```sql
 -- 1. Transaction date
--- Jan 2019
+-- Jan 2019 
 CREATE INDEX idx_transactions_2019_jan_date
 ON core.transactions_2019_jan (transaction_date);
 
@@ -583,3 +599,328 @@ This confirms correct interaction between partitioning and indexing.
 - Partition-level indexes preserved low-latency OLTP access
 - Architecture supports scalable growth and operational maintenance
 - Design mirrors real-world production migration practices
+
+
+<br>
+<br>
+<br>
+
+### Phase 5. Database Security & Access Control
+Following the partitioned architecture introduced in Phase 4, this phase enforces production-grade data security through role-based access control, row-level protection, and auditable validation suitable for financial systems. <br>
+
+The objective is to ensure access is intentional, minimal, and auditable.
+
+<br>
+
+#### 5.1. Security Architecture Overview
+- Sensitive Asset Classification <br>
+
+| Data Area           | Sensitivity | Rationale                           |
+| ------------------- | ----------- | ----------------------------------- |
+| `core.users` (PII)  | High        | Personally identifiable information |
+| `core.cards` (PCI)  | High        | Cardholder data                     |
+| `core.transactions` | High        | Financial activity                  |
+| Error metadata      | Medium      | Fraud & operational signals         |
+| Aggregated metrics  | Low         | Non-identifiable analytics          |
+
+Sensitive tables require explicit, role-based access.
+<br>
+
+- Role Model (Design-Level)
+
+| Role                 | Purpose                                         |
+| -------------------- | ----------------------------------------------- |
+| `db_admin`           | Administrative control (DDL, grants, ownership) |
+| `etl_service`        | Data ingestion and transformation               |
+| `analytics_engineer` | Modeling, optimization, controlled writes       |
+| `analyst_readonly`   | Read-only analytics                             |
+| `auditor`            | Compliance and exception review                 |
+
+Roles represent job functions rather than users; no role has unrestricted daily access.
+
+<br>
+
+**Security Principles Enforced**
+- Least privilege
+- Separation of duties
+- Defense in depth (schema, table, row)
+- Secure by default
+
+<br>
+<br>
+
+#### 5.2. Role-Based Access Control (RBAC)
+
+```sql
+-- Administrative role
+CREATE ROLE db_admin NOLOGIN;
+
+-- ETL role
+CREATE ROLE etl_service NOLOGIN;
+
+-- Analytics engineering role
+CREATE ROLE analytics_engineer NOLOGIN;
+
+-- Read-only analyst role
+CREATE ROLE analyst_readonly NOLOGIN;
+
+-- Audit / compliance role
+CREATE ROLE auditor NOLOGIN;
+```
+
+<br>
+<br>
+
+#### 5.3 Schema-Level Privileges
+
+```sql
+-- Admin
+GRANT ALL PRIVILEGES ON SCHEMA staging, core TO db_admin;
+
+-- ETL
+GRANT USAGE ON SCHEMA staging TO etl_service;
+GRANT INSERT, UPDATE, DELETE, SELECT ON ALL TABLES IN SCHEMA staging TO etl_service;
+
+-- Analytics Engineer
+GRANT USAGE, CREATE ON SCHEMA core TO analytics_engineer;
+GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA core TO analytics_engineer;
+
+-- Read-only Analyst
+GRANT USAGE ON SCHEMA core TO analyst_readonly;
+GRANT SELECT ON ALL TABLES IN SCHEMA core TO analyst_readonly;
+
+-- Auditor
+GRANT USAGE ON SCHEMA core TO auditor;
+GRANT SELECT ON core.transactions TO auditor;
+```
+
+<br>
+
+- Default Privileges (Future-Proofing)
+
+```sql
+-- Core schema: tables created by analytics_engineer
+ALTER DEFAULT PRIVILEGES IN SCHEMA core
+GRANT SELECT ON TABLES TO analyst_readonly;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA core
+GRANT SELECT ON TABLES TO auditor;
+
+-- Staging schema: tables created by etl_service
+ALTER DEFAULT PRIVILEGES IN SCHEMA staging
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO etl_service;
+```
+
+Ensures newly created tables inherit the intended access model without requiring manual re-granting.
+
+<br>
+<br>
+
+#### 5.4. PUBLIC Access Revocation
+
+```sql
+-- Revoke schema & table access from PUBLIC
+REVOKE ALL ON SCHEMA core, staging FROM PUBLIC;
+REVOKE ALL ON ALL TABLES IN SCHEMA core, staging FROM PUBLIC;
+
+-- Revoke future table access from PUBLIC
+ALTER DEFAULT PRIVILEGES IN SCHEMA core
+REVOKE ALL ON TABLES FROM PUBLIC;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA staging
+REVOKE ALL ON TABLES FROM PUBLIC;
+```
+
+
+<br>
+<br>
+
+#### 5.5. Row-Level Security (RLS)
+
+- Enable RLS on Transactions Table
+```sql
+ALTER TABLE core.transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE core.transactions FORCE ROW LEVEL SECURITY;
+```
+
+<br>
+
+- Create RLS Policies
+```sql
+-- Analytics Engineer: full visibility
+CREATE POLICY analytics_engineer_full_access
+ON core.transactions
+FOR SELECT
+TO analytics_engineer
+USING (true);
+
+-- Analyst: clean transactions only
+CREATE POLICY analyst_readonly_filtered_access
+ON core.transactions
+FOR SELECT
+TO analyst_readonly
+USING (errors IS NULL);
+
+-- Auditor: error records only
+CREATE POLICY auditor_error_access
+ON core.transactions
+FOR SELECT
+TO auditor
+USING (errors IS NOT NULL);
+```
+
+<br>
+<br>
+
+#### 5.6. RLS on Partitioned Table
+
+```sql
+-- Enable RLS on the partitioned table
+ALTER TABLE core.transactions_partition ENABLE ROW LEVEL SECURITY;
+
+--  Analytics Engineer (full access)
+CREATE POLICY analytics_full_access_partition
+ON core.transactions_partition
+FOR ALL
+TO analytics_engineer
+USING (true);
+
+-- Analyst (no errors)
+CREATE POLICY analyst_no_errors_partition
+ON core.transactions_partition
+FOR SELECT
+TO analyst_readonly
+USING (errors IS NULL);
+
+-- Auditor (errors only)
+CREATE POLICY auditor_errors_only_partition
+ON core.transactions_partition
+FOR SELECT
+TO auditor
+USING (errors IS NOT NULL);
+```
+
+<br>
+<br>
+
+#### 5.7. Security Validation & Audit Evidence
+
+**RBAC Validation Test (Analyst Role)** <br>
+<img height="250" alt="RBAC Validation_analyst" src="https://github.com/user-attachments/assets/1f7c204a-25b8-4ae5-abd0-286581a19951" />
+
+```sql
+SET ROLE analyst_readonly;
+
+INSERT INTO core.transactions_partition (transaction_id, transaction_date)
+    VALUES (999999, now());
+-- Output: Permission denied
+
+SELECT * FROM staging.transactions;
+-- Output: Permission denied
+
+RESET ROLE;
+```
+
+<br>
+
+**RLS Validation Test** <br>
+
+- Analyst Role <br>
+
+<img height="250" alt="RLS_analyst_count" src="https://github.com/user-attachments/assets/e3f10857-eef9-4978-bb8f-1976319d36e6" />
+
+```sql
+SET ROLE analyst_readonly;
+
+SELECT COUNT(*) FROM core.transactions_partition;
+SET ROLE analyst_readonly;
+-- Output: 13094522
+
+SELECT COUNT(*) FROM core.transactions_partition WHERE errors IS NOT NULL;
+-- Output: 0
+
+RESET ROLE;
+```
+
+<br>
+
+- Auditor Role <br>
+<img height="250" alt="RLS_auditor_count" src="https://github.com/user-attachments/assets/8e2d2c09-d03e-480e-a38c-88a0ce08130b" />
+
+```sql
+SET ROLE auditor;
+
+SELECT COUNT(*) FROM core.transactions_partition;
+-- Output: 211393
+
+RESET ROLE;
+```
+
+<br>
+
+- Analytic Engineer Role <br>
+<img height="250" alt="RLS_Analytics Engineer_count" src="https://github.com/user-attachments/assets/01d73fd0-9a86-48c4-b783-1b4642422cdf" />
+
+```sql
+SET ROLE analytics_engineer;
+
+SELECT COUNT(*) FROM core.transactions_partition;
+-- Output: 13305915 (Full dataset)
+
+RESET ROLE;
+```
+
+<br>
+<br>
+
+#### 5.8. Partition + Security Compatibility
+<img height="250" alt="Partition + Security Compatibility" src="https://github.com/user-attachments/assets/3fbcc503-6fb7-4039-970e-70c7aece0856" />
+
+```sql
+SET ROLE analytics_engineer;
+
+EXPLAIN ANALYZE
+SELECT *
+FROM core.transactions_partition
+WHERE transaction_date >= '2019-01-01'
+  AND transaction_date < '2019-02-01';
+```
+
+Observed:
+- Partition pruning 
+- RLS enforced
+- No performance regression
+
+<br>
+<br>
+
+#### 5.9. Policy & PUBLIC Audit
+```sql
+-- Active policies
+SELECT policyname, roles, qual
+FROM pg_policies
+WHERE schemaname = 'core';
+
+-- Public privilege
+SELECT DISTINCT grantee, table_schema
+FROM information_schema.role_table_grants
+WHERE grantee = 'PUBLIC';
+```
+
+> PUBLIC access is limited to system schemas only (pg_catalog, information_schema).
+
+<br>
+<br>
+
+#### Engineering Summary
+- Role-based access enforced at schema and table levels
+- Row-level security aligned with business intent
+- Partitioned tables secured without breaking performance
+- No PUBLIC exposure of business data
+- Security validated through role simulation and audit queries <br>
+
+This phase demonstrates production-grade PostgreSQL governance suitable for regulated, high-volume financial environments.
+
+
+<br>
+<br>
