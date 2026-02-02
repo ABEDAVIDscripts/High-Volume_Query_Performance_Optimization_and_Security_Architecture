@@ -313,27 +313,23 @@ ANALYZE core.transactions;
 #### Post-Optimization Validation
 All baseline queries were re-executed unchanged to ensure a direct, apples-to-apples comparison. <br>
 
-Observed Execution Behavior & Performance: <br>
+Observed Execution Behavior & Performance: 
+
+<br>
 
 **Query 1: Date-Range Transaction Filtering** <br>
-<img height="300" alt="Query 1  Date-range transaction filtering" src="https://github.com/user-attachments/assets/923ce31a-42c0-4896-939c-6f495d284cb4" />
-
 - Index Scan on idx_transactions_transaction_date
 - Execution time reduced from ~11.4s to ~40ms (>99% improvement)
 
 <br>
 
 **Query 2: User Transaction History** <br>
-<img height="300" alt="Query 2  User transaction history" src="https://github.com/user-attachments/assets/ad659096-4f24-4277-b60d-828e3b3796c3" />
-
 - Bitmap Index Scan on idx_transactions_user_id
 - Execution time reduced from ~3s to ~5ms
 
 <br>
 
 **Query 3: User Transaction History with Date Range** <br>
-<img height="300" alt="Query 3  User Transaction History with Date Range" src="https://github.com/user-attachments/assets/09ee1d5a-53a5-4a7d-91f6-867a9db3d93c" />
-
 - Bitmap Index Scan using composite index
 - Highly selective access path
 - Sub-millisecond execution (~0.08ms)
@@ -341,8 +337,6 @@ Observed Execution Behavior & Performance: <br>
 <br>
 
 **Query 4: Aggregation (Finance / Analytics)** <br>
-<img height="300" alt="Query 4  Aggregation_ Finance _Analytics" src="https://github.com/user-attachments/assets/0d714963-304d-4325-968c-1aab03a899a6" />
-
 - Parallel sequential scan retained
 - Execution time ~11.7s
 - Full-table aggregation required; index usage not beneficial for this workload
@@ -352,8 +346,6 @@ Observed Execution Behavior & Performance: <br>
 <br>
 
 **Query 5: Error Monitoring** <br>
-<img height="300" alt="Query 5  Error Monitoring" src="https://github.com/user-attachments/assets/773305c0-05d3-4575-884c-bb8381ab3df0" />
-
 - Bitmap Index Scan on partial index
 - Execution time ~5.0s
 - Scan limited to ~211K error records instead of the full table
@@ -366,7 +358,7 @@ Observed Execution Behavior & Performance: <br>
 | Date range       | ~11s   | ~40ms   |
 | User lookup      | ~3s    | ~5ms    |
 | User + date      | ~3s    | ~0.08ms |
-| Aggregation      | ~10s   | ~10s    |
+| Aggregation      | ~10s   | ~11.7s  |
 | Error monitoring | ~3.6s  | ~5s     |
 
 
@@ -453,7 +445,7 @@ Partition boundaries follow PostgreSQL’s inclusive/exclusive range enforcement
 
 <br>
 
-- Partition Structure Validation
+- Partition Structure Validation <br>
 <img height="300" alt="Partition Validation" src="https://github.com/user-attachments/assets/92c20ab5-07eb-47dc-b93b-b9d005407d27" />
 
 ```sql
@@ -529,7 +521,7 @@ WHERE errors IS NOT NULL;
 ```
 <br>
 
-<img height="250" alt="Verify Indexes Exist" src="https://github.com/user-attachments/assets/2a16a7c7-4d86-43c5-8819-0ca2444bed1c" />
+<img height="300" alt="Verify Indexes Exist" src="https://github.com/user-attachments/assets/2a16a7c7-4d86-43c5-8819-0ca2444bed1c" />
 
 - Index verification
 ```sql
@@ -558,7 +550,7 @@ PostgreSQL automatically routed rows into the appropriate monthly partitions bas
 
 - Verification
 core.transactions_2019_jan image <br>
-<img height="250" alt="jan partition" src="https://github.com/user-attachments/assets/13cb865c-bee6-4a97-a0ff-13e8cee3962d" /> <br>
+<img height="300" alt="jan partition" src="https://github.com/user-attachments/assets/13cb865c-bee6-4a97-a0ff-13e8cee3962d" /> <br>
 
 ```
 SELECT * FROM core.transactions_partition;
@@ -572,7 +564,7 @@ This step validates end-to-end partition routing behavior without modifying the 
 <br>
 
 #### 6. Query Validation (Partition Pruning)
-<img height="250" alt="Query Validation" src="https://github.com/user-attachments/assets/aca10bfb-43d6-425a-b473-07756aa57844" />
+<img height="300" alt="Query Validation" src="https://github.com/user-attachments/assets/aca10bfb-43d6-425a-b473-07756aa57844" />
 
 ```SQL
 EXPLAIN ANALYZE
@@ -806,7 +798,7 @@ USING (errors IS NOT NULL);
 #### 5.7. Security Validation & Audit Evidence
 
 **RBAC Validation Test (Analyst Role)** <br>
-<img height="250" alt="RBAC Validation_analyst" src="https://github.com/user-attachments/assets/1f7c204a-25b8-4ae5-abd0-286581a19951" />
+<img height="300" alt="RBAC Validation_analyst" src="https://github.com/user-attachments/assets/1f7c204a-25b8-4ae5-abd0-286581a19951" />
 
 ```sql
 SET ROLE analyst_readonly;
@@ -823,17 +815,16 @@ RESET ROLE;
 
 <br>
 
-**RLS Validation Test** <br>
+**RLS Validation** <br>
 
 - Analyst Role <br>
 
-<img height="250" alt="RLS_analyst_count" src="https://github.com/user-attachments/assets/e3f10857-eef9-4978-bb8f-1976319d36e6" />
+<img height="300" alt="RLS_analyst_count" src="https://github.com/user-attachments/assets/e3f10857-eef9-4978-bb8f-1976319d36e6" />
 
 ```sql
 SET ROLE analyst_readonly;
 
 SELECT COUNT(*) FROM core.transactions_partition;
-SET ROLE analyst_readonly;
 -- Output: 13094522
 
 SELECT COUNT(*) FROM core.transactions_partition WHERE errors IS NOT NULL;
@@ -845,7 +836,7 @@ RESET ROLE;
 <br>
 
 - Auditor Role <br>
-<img height="250" alt="RLS_auditor_count" src="https://github.com/user-attachments/assets/8e2d2c09-d03e-480e-a38c-88a0ce08130b" />
+<img height="300" alt="RLS_auditor_count" src="https://github.com/user-attachments/assets/8e2d2c09-d03e-480e-a38c-88a0ce08130b" />
 
 ```sql
 SET ROLE auditor;
@@ -859,7 +850,7 @@ RESET ROLE;
 <br>
 
 - Analytic Engineer Role <br>
-<img height="250" alt="RLS_Analytics Engineer_count" src="https://github.com/user-attachments/assets/01d73fd0-9a86-48c4-b783-1b4642422cdf" />
+<img height="300" alt="RLS_Analytics Engineer_count" src="https://github.com/user-attachments/assets/01d73fd0-9a86-48c4-b783-1b4642422cdf" />
 
 ```sql
 SET ROLE analytics_engineer;
@@ -874,7 +865,7 @@ RESET ROLE;
 <br>
 
 #### 5.8. Partition + Security Compatibility
-<img height="250" alt="Partition + Security Compatibility" src="https://github.com/user-attachments/assets/3fbcc503-6fb7-4039-970e-70c7aece0856" />
+<img height="300" alt="Partition + Security Compatibility" src="https://github.com/user-attachments/assets/3fbcc503-6fb7-4039-970e-70c7aece0856" />
 
 ```sql
 SET ROLE analytics_engineer;
@@ -924,3 +915,9 @@ This phase demonstrates production-grade PostgreSQL governance suitable for regu
 
 <br>
 <br>
+
+## Final Notes
+
+This case study focuses on performance and security engineering in an inherited PostgreSQL system. 
+Schema design, data modeling, and application-layer concerns were intentionally treated as pre-existing 
+to reflect real-world database optimization work.
