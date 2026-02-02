@@ -35,8 +35,11 @@ Instead of designing a schema from scratch, this project starts from an inherite
 <br> 
 
 ### Project Structure
-<img height="350" alt="Work Flow (1)" src="https://github.com/user-attachments/assets/2b5ffbaa-cea5-412b-902f-bdbe2f213530" />
 
+<img height="350" alt="Work Flow new" src="https://github.com/user-attachments/assets/b5315265-1dd5-4f97-a9b9-fd731f699cb3" />
+
+
+<br>
 <br>
 <br>
 <br>
