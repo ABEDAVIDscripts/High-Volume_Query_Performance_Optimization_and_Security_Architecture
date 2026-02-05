@@ -63,7 +63,7 @@ The project begins at the point where real-world database engineering work typic
 The database schema contains normalized production tables supporting financial operations:
 - core.users: customer records (PII)
 - core.cards: payment card data (PCI-sensitive)
-- core.transactions — high-volume fact table (13M+ rows)
+- core.transactions: high-volume fact table (13M+ rows)
 
 <br>
 
